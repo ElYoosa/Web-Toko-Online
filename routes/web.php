@@ -110,4 +110,12 @@ Route::middleware('is.customer')->group(function () {
     Route::get('cart', [OrderController::class, 'viewCart'])->name('order.cart');
     Route::post('cart/update/{id}', [OrderController::class, 'updateCart'])->name('order.updateCart');
     Route::post('remove/{id}', [OrderController::class, 'removeFromCart'])->name('order.remove');
+
+   // route untuk pesanan backend
+    Route::get('pesanan/proses', [OrderController::class, 'statusProses'])->name('pesanan.proses')->middleware('auth');
+     Route::get('pesanan/selesai', [OrderController::class, 'statusSelesai'])->name('pesanan.selesai')->middleware('auth');
+    Route::get('pesanan/statusDetail/{id}', [OrderController::class, 'statusDetail'])->name('pesanan.detail')->middleware('auth');
+    Route::get('pesanan/invoiceBackend/{id}', [OrderController::class, 'invoiceBackend'])->name('pesanan.invoice')->middleware('auth');
+    Route::put('pesanan/statusUpdate/{id}', [OrderController::class, 'statusUpdate'])->name('pesanan.update')->middleware('auth');
+
 });

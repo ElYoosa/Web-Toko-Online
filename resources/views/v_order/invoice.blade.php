@@ -79,8 +79,7 @@ $totalBerat += $item->produk->berat * $item->quantity;
 <tr>
 <td> {{ $loop->iteration }}</td>
 <td class="details">
-<a>{{ $item->produk->nama_produk }} #{{ $item->produk->kategori-
->nama_kategori }}</a>
+<a>{{ $item->produk->nama_produk }} #{{ $item->produk->kategori->nama_kategori }}</a>
 <ul>
     <li><span>Berat: {{ $item->produk->berat }} Gram</span></li>
 <li><span>Stok: {{ $item->produk->stok }} Gram</span></li>
@@ -91,8 +90,7 @@ $totalBerat += $item->produk->berat * $item->quantity;
 <td class="qty text-center">
 <a> {{ $item->quantity }} </a>
 </td>
-<td class="total text-center">Rp. {{ number_format($item->harga * $item-
->quantity, 0, ',', '.') }}</td>
+<td class="total text-center">Rp. {{ number_format($item->harga * $item->quantity, 0, ',', '.') }}</td>
 </tr>
 @endforeach
 </tbody>

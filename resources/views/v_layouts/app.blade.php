@@ -87,7 +87,7 @@
 
                         @if (Auth::check())
                         <!-- Account -->
-                        <li><a href="{{ route('customer.akun', ['id' => Auth::user()->id]) }}"><i class="fa fauser-o"></i> Akun Saya</a>
+                        <li><a href="{{ route('customer.akun', ['id' => Auth::user()->id]) }}"><i class="fa fa-user-o"></i> Akun Saya</a>
                         </li>
                         <li class="header-account dropdown default-dropdown">
                             <div class="dropdown-toggle" role="button" data-toggle="dropdown" aria-expanded="true">

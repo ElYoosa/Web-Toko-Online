@@ -17,7 +17,6 @@ class OrderController extends Controller
     {
         $customer = Customer::where('user_id', Auth::id())->first();
         $produk = Produk::findOrFail($id);
-
         $order = Order::firstOrCreate(
             ['customer_id' => $customer->id, 'status' => 'pending'],
             ['total_harga' => 0]
@@ -59,14 +58,11 @@ class OrderController extends Controller
 
         if ($order) {
             $orderItem = $order->orderItems()->where('id', $id)->first();
-
             if ($orderItem) {
                 $quantity = $request->input('quantity');
-
                 if ($quantity > $orderItem->produk->stok) {
                     return redirect()->route('order.cart')->with('error', 'Jumlah produk melebihi stok yang tersedia');
                 }
-
                 $order->total_harga -= $orderItem->harga * $orderItem->quantity;
                 $orderItem->quantity = $quantity;
                 $orderItem->save();
@@ -85,11 +81,9 @@ class OrderController extends Controller
 
         if ($order) {
             $orderItem = OrderItem::where('order_id', $order->id)->where('produk_id', $id)->first();
-
             if ($orderItem) {
                 $order->total_harga -= $orderItem->harga * $orderItem->quantity;
                 $orderItem->delete();
-
                 if ($order->total_harga <= 0) {
                     $order->delete();
                 } else {
@@ -118,7 +112,6 @@ class OrderController extends Controller
     {
         $customer = Customer::where('user_id', Auth::id())->first();
         $order = Order::where('customer_id', $customer->id)->where('status', 'pending')->first();
-
         $origin = $request->input('city_origin');
         $originName = $request->input('city_origin_name');
 
@@ -132,9 +125,7 @@ class OrderController extends Controller
             $order->pos = $request->input('pos');
             $order->save();
 
-            return redirect()->route('order.selectpayment')
-                ->with('origin', $origin)
-                ->with('originName', $originName);
+            return redirect()->route('order.selectpayment')->with('origin', $origin)->with('originName', $originName);
         }
 
         return back()->with('error', 'Gagal menyimpan data ongkir');
@@ -144,7 +135,6 @@ class OrderController extends Controller
     {
         $customer = Auth::user();
         $order = Order::where('customer_id', $customer->customer->id)->where('status', 'pending')->first();
-
         $origin = session('origin');
         $originName = session('originName');
 
@@ -153,15 +143,12 @@ class OrderController extends Controller
         }
 
         $order->load('orderItems.produk');
-
         $totalHarga = 0;
         foreach ($order->orderItems as $item) {
             $totalHarga += $item->harga * $item->quantity;
         }
-
         $grossAmount = $totalHarga + $order->biaya_ongkir;
 
-        // Midtrans config
         Config::$serverKey = config('midtrans.server_key');
         Config::$isProduction = false;
         Config::$isSanitized = true;
@@ -172,7 +159,7 @@ class OrderController extends Controller
         $params = [
             'transaction_details' => [
                 'order_id' => $orderId,
-                'gross_amount' => (int) $grossAmount
+                'gross_amount' => (int) $grossAmount,
             ],
             'customer_details' => [
                 'first_name' => $customer->nama,
@@ -183,12 +170,7 @@ class OrderController extends Controller
 
         $snapToken = Snap::getSnapToken($params);
 
-        return view('v_order.select_payment', [
-            'order' => $order,
-            'origin' => $origin,
-            'originName' => $originName,
-            'snapToken' => $snapToken,
-        ]);
+        return view('v_order.select_payment', compact('order', 'origin', 'originName', 'snapToken'));
     }
 
     public function callback(Request $request)
@@ -198,7 +180,6 @@ class OrderController extends Controller
 
         if ($hashed == $request->signature_key) {
             $order = Order::find($request->order_id);
-
             if ($order) {
                 $order->update(['status' => 'Paid']);
             }
@@ -208,7 +189,9 @@ class OrderController extends Controller
     public function complete()
     {
         $customer = Auth::user();
-        $order = Order::where('customer_id', $customer->customer->id)->where('status', 'pending')->first();
+        $order = Order::where('customer_id', $customer->customer->id)
+            ->where('status', 'pending')
+            ->first();
 
         if ($order) {
             $order->status = 'Paid';
@@ -222,7 +205,6 @@ class OrderController extends Controller
     {
         $customer = Customer::where('user_id', Auth::id())->first();
         $statuses = ['Paid', 'Kirim', 'Selesai'];
-
         $orders = Order::where('customer_id', $customer->id)
             ->whereIn('status', $statuses)
             ->orderBy('id', 'desc')
@@ -234,7 +216,144 @@ class OrderController extends Controller
     public function invoiceFrontend($id)
     {
         $order = Order::findOrFail($id);
+        return view('backend.v_pesanan.invoice', [
+            'judul' => 'Data Transaksi',
+            'subJudul' => 'Pesanan Proses',
+            'order' => $order,
+        ]);
+    }
 
+    public function statusProses()
+    {
+        $order = Order::whereIn('status', ['Paid', 'Kirim'])->orderBy('id', 'desc')->get();
+        return view('backend.v_pesanan.proses', [
+            'judul' => 'Pesanan',
+            'subJudul' => 'Pesanan Proses',
+            'index' => $order
+        ]);
+    }
+
+    public function statusSelesai()
+    {
+        $order = Order::where('status', 'Selesai')->orderBy('id', 'desc')->get();
+        return view('backend.v_pesanan.selesai', [
+            'judul' => 'Data Transaksi',
+            'subJudul' => 'Pesanan Proses',
+            'index' => $order
+        ]);
+    }
+
+    public function statusDetail($id)
+    {
+        $order = Order::findOrFail($id);
+        return view('backend.v_pesanan.detail', [
+            'judul' => 'Data Transaksi',
+            'subJudul' => 'Pesanan Proses',
+            'order' => $order
+        ]);
+    }
+
+    public function statusUpdate(Request $request, string $id)
+    {
+        $order = Order::findOrFail($id);
+
+        $rules = [
+            'alamat' => 'required',
+        ];
+
+        if ($request->status != $order->status) {
+            $rules['status'] = 'required';
+        }
+
+        if ($request->noresi != $order->noresi) {
+            $rules['noresi'] = 'required';
+        }
+
+        if ($request->pos != $order->pos) {
+            $rules['pos'] = 'required';
+        }
+
+        $validatedData = $request->validate($rules);
+        Order::where('id', $id)->update($validatedData);
+
+        return redirect()->route('pesanan.proses')->with('success', 'Data berhasil diperbaharui');
+    }
+
+    public function formOrderProses()
+    {
+        return view('backend.v_pesanan.formproses', [
+            'judul' => 'Laporan',
+            'subJudul' => 'Laporan Pesanan Proses'
+        ]);
+    }
+
+    public function cetakOrderProses(Request $request)
+    {
+        $request->validate([
+            'tanggal_awal' => 'required|date',
+            'tanggal_akhir' => 'required|date|after_or_equal:tanggal_awal',
+        ], [
+            'tanggal_awal.required' => 'Tanggal Awal harus diisi.',
+            'tanggal_akhir.required' => 'Tanggal Akhir harus diisi.',
+            'tanggal_akhir.after_or_equal' => 'Tanggal Akhir harus lebih besar atau sama dengan Tanggal Awal.',
+        ]);
+
+        $tanggalAwal = $request->input('tanggal_awal');
+        $tanggalAkhir = $request->input('tanggal_akhir');
+        $order = Order::whereIn('status', ['Paid', 'Kirim'])->orderBy('id', 'desc')->get();
+
+        return view('backend.v_pesanan.cetakproses', [
+            'judul' => 'Laporan',
+            'subJudul' => 'Laporan Pesanan Proses',
+            'tanggalAwal' => $tanggalAwal,
+            'tanggalAkhir' => $tanggalAkhir,
+            'cetak' => $order
+        ]);
+    }
+
+    public function formOrderSelesai()
+    {
+        return view('backend.v_pesanan.formselesai', [
+            'judul' => 'Laporan',
+            'subJudul' => 'Laporan Pesanan Selesai',
+        ]);
+    }
+
+    public function cetakOrderSelesai(Request $request)
+    {
+        $request->validate([
+            'tanggal_awal' => 'required|date',
+            'tanggal_akhir' => 'required|date|after_or_equal:tanggal_awal',
+        ], [
+            'tanggal_awal.required' => 'Tanggal Awal harus diisi.',
+            'tanggal_akhir.required' => 'Tanggal Akhir harus diisi.',
+            'tanggal_akhir.after_or_equal' => 'Tanggal Akhir harus lebih besar atau sama dengan Tanggal Awal.',
+        ]);
+
+        $tanggalAwal = $request->input('tanggal_awal');
+        $tanggalAkhir = $request->input('tanggal_akhir');
+        $order = Order::where('status', 'Selesai')
+            ->whereBetween('created_at', [$tanggalAwal, $tanggalAkhir])
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $totalPendapatan = $order->sum(function ($row) {
+            return $row->total_harga + $row->biaya_ongkir;
+        });
+
+        return view('backend.v_pesanan.cetakselesai', [
+            'judul' => 'Laporan',
+            'subJudul' => 'Laporan Pesanan Selesai',
+            'tanggalAwal' => $tanggalAwal,
+            'tanggalAkhir' => $tanggalAkhir,
+            'cetak' => $order,
+            'totalPendapatan' => $totalPendapatan
+        ]);
+    }
+
+    public function invoiceBackend($id)
+    {
+        $order = Order::findOrFail($id);
         return view('backend.v_pesanan.invoice', [
             'judul' => 'Data Transaksi',
             'subJudul' => 'Pesanan Proses',
